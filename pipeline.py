@@ -6,7 +6,7 @@ from Bio.SeqUtils import GC
 import subprocess
 import logging
 import pandas as pd
-
+import itertools
 
 def get_args():
     arg_parser = argparse.ArgumentParser()
@@ -21,9 +21,11 @@ def main():
 
 class Pipeline:
     def __init__(self,
-                input_dir
+                input_dir,
+                k
     ):
         self.input_dir = input_dir
+        self.k = k
         self.uproc_executable_fp = os.environ.get('UPROC', default='uproc')
         #TODO change to not hard-coded
         self.uproc_db_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/pfam27ready'
@@ -43,6 +45,7 @@ class Pipeline:
             out_fp = os.path.join(out_dir, output_name)
             count = 0
             curr_id = ''
+            log.info('Running uproc')
             uproc_out = self.uproc(input_file, uproc_dir, log)
             with open(input_file, 'r') as f:
                 with open(out_fp, 'w') as out:
@@ -63,11 +66,17 @@ class Pipeline:
                                 self.step_02_num_orfs_and_codon_bias(l, out, i, uproc_out)
                                 self.step_03_kmer_freq(l, out)
                         count += 1
+            log.info('Finished file "%s"' % input_file)
+        model = self.create_model()
+        feature_files = glob.glob(os.path.join(out_dir,
+                                                '*.csv')
+        
+        for feature_file in feature_files:
+            
 
     def step_01_gc_content(self, l, out, curr_id):
         seq = Seq(l)
         out.write('%s,%f,' % (curr_id, (GC(seq) / 100)))
-        return
 
  
     def step_02_num_orfs_and_codon_bias(self, l, out, i, uproc_file):
@@ -116,11 +125,33 @@ class Pipeline:
         for x in range(64):
             codon_bias_arr[x] /= codon_counter 
         out.write('%d,%s,' % (len(contig_info_dict), ','.join(codon_bias_arr)))
-        return
 
  
     def step_03_kmer_freq(self, l, out):
-        return
+        all_kmers = gen_kmers(self.k)
+        un_kmers = uniq_kmers(all_kmers)
+        seq = Seq(l)
+        seqUp = seq.upper()
+        nkmers = len(seq) - k + 1
+        kmers  = dict() 
+        for i in list(range(0, nkmers - 1)):
+            kmer = str(seqUp[i:i + k])
+
+            if kmer in un_kmers:
+                if kmer in kmers:
+                    kmers[kmer] += 1
+                else:
+                    kmers[kmer] = 1
+            else :
+                rev = find_reverse(kmer)
+                if rev in kmers:
+                    kmers[rev] += 1
+                else:
+                    kmers[rev] = 1
+
+        counts = [ (kmers[x]/float(nkmers)) if x in kmers else 0 for x in un_kmers ]
+        out.write(",".join([str(x) for x in counts]))
+
 
     def uproc(self, input_file, uproc_dir, log):
         input_name = os.path.splittext(os.path.basename(input_file))
@@ -140,6 +171,41 @@ class Pipeline:
                                         'log')
                 )
         return uproc_out
+
+
+    def create_model(self):
+        num_features = get_num_features(self.k)
+        model = Sequential()
+    
+        model.add(Dense(100, input_dim=num_features, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+    
+        model.add(Dense(50, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(25, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))    
+    
+        model.add(Dense(12, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(6, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(3, kernel_initializer='he_uniform'))
+        model.add(BatchNormalization())
+        model.add(Activation('relu'))
+
+        model.add(Dense(1, kernel_initializer='he_uniform'))
+        model.add(Activation('sigmoid'))
+        
+        model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        return model
 
 def run_cmd(cmd_line_list, log_file, **kwargs):
     log = logging.getLogger(name=__name__)
@@ -178,4 +244,41 @@ def complement(seq):
 
 
 def reverse_complement(s):
-    return complement(s)
+    return complement(s[::-1])
+
+
+def find_reverse(seq):
+    reverse=""
+    for base in seq :
+        if base == 'A':
+            reverse=reverse+'T'
+        elif base =='T':
+            reverse=reverse+'A'
+        elif base == 'C':
+            reverse=reverse+'G'
+        elif base =='G':
+            reverse=reverse+'C'
+        else :
+            reverse=reverse+'X'
+    return reverse
+
+
+def gen_kmers(k):
+    bases=['A','T','G','C']
+    return [''.join(p) for p in itertools.product(bases, repeat=k)]
+
+
+def uniq_kmers(kmers):
+    didthat=[]
+    uniq =[]
+    for kmer in kmers:
+        if kmer not in didthat :
+            didthat.append(kmer)
+            reverse=find_reverse(kmer)
+            didthat.append(reverse)
+            uniq.append(kmer)
+
+    return uniq
+
+def get_num_features(kmer):
+    return int(66 + ((4 ** int(kmer)) / 2))
