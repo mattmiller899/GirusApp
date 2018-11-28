@@ -1,15 +1,29 @@
 import numpy as np
 import argparse
-from mpi4py import MPI
 from Bio import SeqIO, Seq
 from Bio.SeqUtils import GC
 import subprocess
 import logging
 import pandas as pd
 import itertools
+#import keras
+#from keras.models import Sequential
+#from keras.layers import Dense, BatchNormalization, Dropout, Activation
 
 def get_args():
     arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument('-o', '--output-dir', required=True, default="",
+                            help='path to the output directory')
+    arg_parser.add_argument('-i', '--input-dir', required=True, default="",
+                            help='path to the input directory')
+    arg_parser.add_argument('-p', '--predict', action='store_true', default=False,
+                            help='flag that causes your data to be predicted.')
+    arg_parser.add_argument('-k', '--kmer', required=True, type=int,
+                            help='kmer size')
+    arg_parser.add_argument('-e', '--extension', required=True, default='fasta',
+                            help='extension for input files')
+    arg_parser.add_argument('-m', '--model_type', required=True, type=int,
+                            help='1 = virus, 2 = bact, 3 = protozoa, 4 = PAVFB')
     args = arg_parser.parse_args()
     return args
 
@@ -22,27 +36,43 @@ def main():
 class Pipeline:
     def __init__(self,
                 input_dir,
-                k
+                output_dir,
+                predict,
+                kmer,
+                ext,
+                model_type
+                
     ):
         self.input_dir = input_dir
-        self.k = k
-        self.uproc_executable_fp = os.environ.get('UPROC', default='uproc')
+        self.output_dir = output_dir
+        self.predict = predict
+        self.k = kmer
+        self.uproc_executable_fp = os.environ.get('UPROC-DNA', default='uproc-dna')
+        self.ext = ext
+        self.model_type = model_type
         #TODO change to not hard-coded
         self.uproc_db_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/pfam27ready'
         self.uproc_model_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/model'
 
     def run(self):
+        logging.basicConfig(level=logging.INFO)
         log = logging.getLogger(name='GirusApp')
         input_files = glob.glob(os.path.join(self.input_dir,
                                             '*.%s' % self.ext))
-        out_dir = os.mkdir(os.path.join(self.input_dir,
-                                            'output_dir'))
+        out_dir = self.output_dir
         uproc_dir = os.mkdir(os.path.join(out_dir, 'uproc_dir'))
+        log.info('UPROC dir = "%s"' % uproc_dir)
+        feature_dir = os.mkdir(os.path.join(out_dir, 'feature_dir'))
+        log.info('Feature dir = "%s"' % feature_dir)
+        pred_dir = os.mkdir(os.path.join(out_dir, 'prediction_dir'))
+        log.info('Prediction dir = "%s"' % pred_dir)
+        log.info('List of input files = "%s"' % input_files)
+        #model = self.create_model()
         for input_file in input_files:
             log.info('Preprocessing file "%s"' % input_file)
             input_name = os.path.splittext(os.path.basename(input_file))[0]
             output_name = '%s.csv' % input_name
-            out_fp = os.path.join(out_dir, output_name)
+            out_fp = os.path.join(feature_dir, output_name)
             count = 0
             curr_id = ''
             log.info('Running uproc')
@@ -67,16 +97,26 @@ class Pipeline:
                                 self.step_03_kmer_freq(l, out)
                         count += 1
             log.info('Finished file "%s"' % input_file)
-        model = self.create_model()
-        feature_files = glob.glob(os.path.join(out_dir,
-                                                '*.csv')
-        
-        for feature_file in feature_files:
-            
+            if self.predict:
+                log.info('Performing predictions on "%s"' % out_fp)
+                X = np.loadtxt(out_fp,
+                                delimiter=',')
+                names = X[:, 0:2]
+                X = X[:, 2:]
+                y_pred = model.predict(x=X, 
+                                        batch_size=64)
+                pred_fp = os.path.join(pred_dir, '%s.txt' % input_name)
+                with open(pred_fp, 'w') as out:
+                    for i, pred in enumerate(y_pred):
+                        if pred > self.threshold:
+                            out.write('%s\n%s\n' % (names[i, 0], names[i, 1]))
+                log.info('finished predictions for "%s", removing feature file' % input_file)
+                os.remove(out_fp)
+        log.info('Finished all input files')
 
     def step_01_gc_content(self, l, out, curr_id):
         seq = Seq(l)
-        out.write('%s,%f,' % (curr_id, (GC(seq) / 100)))
+        out.write('%s,%s,%f,' % (curr_id, seq.tostring(), (GC(seq) / 100)))
 
  
     def step_02_num_orfs_and_codon_bias(self, l, out, i, uproc_file):
@@ -205,6 +245,7 @@ class Pipeline:
         model.add(Activation('sigmoid'))
         
         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+        model.load_weight(self.model_name)
         return model
 
 def run_cmd(cmd_line_list, log_file, **kwargs):
