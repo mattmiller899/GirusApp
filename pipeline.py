@@ -6,6 +6,8 @@ import subprocess
 import logging
 import pandas as pd
 import itertools
+import os
+import glob
 #import keras
 #from keras.models import Sequential
 #from keras.layers import Dense, BatchNormalization, Dropout, Activation
@@ -39,7 +41,7 @@ class Pipeline:
                 output_dir,
                 predict,
                 kmer,
-                ext,
+                extension,
                 model_type
                 
     ):
@@ -48,54 +50,69 @@ class Pipeline:
         self.predict = predict
         self.k = kmer
         self.uproc_executable_fp = os.environ.get('UPROC-DNA', default='uproc-dna')
-        self.ext = ext
+        self.ext = extension
         self.model_type = model_type
         #TODO change to not hard-coded
         self.uproc_db_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/pfam27ready'
         self.uproc_model_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/model'
+        self.all_kmers = gen_kmers(self.k)
+        self.un_kmers = uniq_kmers(self.all_kmers)
 
     def run(self):
-        logging.basicConfig(level=logging.INFO)
-        log = logging.getLogger(name='GirusApp')
+        #self.num_processes = MPI.COMM_WORLD.size
+        #self.rank = MPI.COMM_WORLD.rank
+        #self.comm = MPI.COMM_WORLD
+        logging.basicConfig(level=logging.INFO,
+                            filename="%s/log" % self.output_dir)
+        #log = logging.getLogger(name='GirusApp_process%d' % rank)
+        log = logging.getLogger(name='GirusApp_process')
         input_files = glob.glob(os.path.join(self.input_dir,
                                             '*.%s' % self.ext))
         out_dir = self.output_dir
-        uproc_dir = os.mkdir(os.path.join(out_dir, 'uproc_dir'))
+        uproc_dir = os.path.join(out_dir, 'uproc_dir')
         log.info('UPROC dir = "%s"' % uproc_dir)
-        feature_dir = os.mkdir(os.path.join(out_dir, 'feature_dir'))
+        feature_dir = os.path.join(out_dir, 'feature_dir')
         log.info('Feature dir = "%s"' % feature_dir)
-        pred_dir = os.mkdir(os.path.join(out_dir, 'prediction_dir'))
+        pred_dir = os.path.join(out_dir, 'prediction_dir')
+        #if self.rank == 0:
+        os.mkdir(pred_dir)
+        os.mkdir(uproc_dir) 
+        os.mkdir(feature_dir)
         log.info('Prediction dir = "%s"' % pred_dir)
         log.info('List of input files = "%s"' % input_files)
         #model = self.create_model()
         for input_file in input_files:
             log.info('Preprocessing file "%s"' % input_file)
-            input_name = os.path.splittext(os.path.basename(input_file))[0]
+            input_name = os.path.splitext(os.path.basename(input_file))[0]
             output_name = '%s.csv' % input_name
             out_fp = os.path.join(feature_dir, output_name)
-            count = 0
             curr_id = ''
             log.info('Running uproc')
             uproc_out = self.uproc(input_file, uproc_dir, log)
+            log.info('Uproc finished')
             with open(input_file, 'r') as f:
+                count = 0
                 with open(out_fp, 'w') as out:
                     for i, l in enumerate(f):
-                        l = l[-1]
-                        if self.ext is 'fasta':
-                            if count % 2 == 1:
+                        l = l[1:-1]
+                        if self.ext == "fasta" or self.ext == "fna":
+                            if i % 2 == 1:
+                                log.info("l = %s, curr_id = %s" % (l, curr_id))
                                 self.step_01_gc_content(l, out, curr_id)
-                                self.step_02_num_orfs_and_codon_bias(l, out, i, uproc_out)
+                                self.step_02_num_orfs_and_codon_bias(l, out, count, uproc_out)
                                 self.step_03_kmer_freq(l, out)
+                                count += 1
                             else:
                                 curr_id = l
                         else:
-                            if count % 4 == 0:
+                            log.info("in here")
+                            if i % 4 == 0:
                                 curr_id = l
-                            elif count % 4 == 1:
+                            elif i % 4 == 1:
                                 self.step_01_gc_content(l, out, curr_id)
-                                self.step_02_num_orfs_and_codon_bias(l, out, i, uproc_out)
+                                self.step_02_num_orfs_and_codon_bias(l, out, count, uproc_out)
                                 self.step_03_kmer_freq(l, out)
-                        count += 1
+                                count += 1
             log.info('Finished file "%s"' % input_file)
             if self.predict:
                 log.info('Performing predictions on "%s"' % out_fp)
@@ -115,7 +132,9 @@ class Pipeline:
         log.info('Finished all input files')
 
     def step_01_gc_content(self, l, out, curr_id):
-        seq = Seq(l)
+        seq = Seq.Seq(l)
+        print("Curr id = %s" % curr_id)
+        print("seq = %s" % str(seq))
         out.write('%s,%s,%f,' % (curr_id, seq.tostring(), (GC(seq) / 100)))
 
  
@@ -137,7 +156,7 @@ class Pipeline:
             elif row[0] > i:
                 break
         if found_orfs is False:
-            out.write('0,%s,' % ','.join([0.0 for x in range(64)]))
+            out.write('0,%s,' % str(','.join(['0.0' for x in range(64)])))
             return
         #Gt codon bias based on ORF's and sequence
         codon_counter = 0
@@ -162,22 +181,23 @@ class Pipeline:
                 codon_counter += 1
                 codon_num = codon_vals[codon[0]] * 16 + codon_vals[codon[1]] * 4 + codon_vals[codon[2]]
                 codon_bias_arr[codon_num] += 1.0
-        for x in range(64):
-            codon_bias_arr[x] /= codon_counter 
-        out.write('%d,%s,' % (len(contig_info_dict), ','.join(codon_bias_arr)))
+        if codon_counter != 0:
+            for x in range(64):
+                codon_bias_arr[x] /= codon_counter 
+        write_str = ','.join(['{:.5f}'.format(x) for x in codon_bias_arr])
+        print("write str = %s" % write_str)
+        out.write('%d,%s,' % (len(contig_info_dict), write_str))
 
  
     def step_03_kmer_freq(self, l, out):
-        all_kmers = gen_kmers(self.k)
-        un_kmers = uniq_kmers(all_kmers)
-        seq = Seq(l)
+        seq = Seq.Seq(l)
         seqUp = seq.upper()
-        nkmers = len(seq) - k + 1
+        nkmers = len(seq) - self.k + 1
         kmers  = dict() 
         for i in list(range(0, nkmers - 1)):
-            kmer = str(seqUp[i:i + k])
+            kmer = str(seqUp[i:i + self.k])
 
-            if kmer in un_kmers:
+            if kmer in self.un_kmers:
                 if kmer in kmers:
                     kmers[kmer] += 1
                 else:
@@ -189,20 +209,21 @@ class Pipeline:
                 else:
                     kmers[rev] = 1
 
-        counts = [ (kmers[x]/float(nkmers)) if x in kmers else 0 for x in un_kmers ]
-        out.write(",".join([str(x) for x in counts]))
+        counts = [ (kmers[x]/float(nkmers)) if x in kmers else 0 for x in self.un_kmers ]
+        out.write(str(",".join([str(x) for x in counts])))
+        out.write('\n')
 
 
     def uproc(self, input_file, uproc_dir, log):
-        input_name = os.path.splittext(os.path.basename(input_file))
+        input_name = os.path.splitext(os.path.basename(input_file))[0]
         output_name = '%s.csv' % input_name
         uproc_out = os.path.join(uproc_dir, output_name)
         run_cmd([
                 self.uproc_executable_fp,
                 '-p',
                 '-o', uproc_out,
-                '--pthresh', 0,
-                '--othresh', 2,
+                '--pthresh', '0',
+                '--othresh', '2',
                 self.uproc_db_fp, 
                 self.uproc_model_fp,
                 input_file
@@ -323,3 +344,6 @@ def uniq_kmers(kmers):
 
 def get_num_features(kmer):
     return int(66 + ((4 ** int(kmer)) / 2))
+
+if __name__ == '__main__':
+    main()
