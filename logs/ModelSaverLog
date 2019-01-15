@@ -1,0 +1,169 @@
+INFO:ModelSaver:[name: "/device:CPU:0"
+device_type: "CPU"
+memory_limit: 268435456
+locality {
+}
+incarnation: 14835857760302415951
+]
+
+INFO:ModelSaver:/rsgrps/bhurwitz/mattmiller899/GirusApp/hdf_test/hdf_3000_2_0_train.h5 2 22 /rsgrps/bhurwitz/mattmiller899/GirusApp/models/model_3000_2.h5
+
+INFO:ModelSaver:[name: "/device:CPU:0"
+device_type: "CPU"
+memory_limit: 268435456
+locality {
+}
+incarnation: 11175256225460524313
+]
+
+INFO:ModelSaver:/rsgrps/bhurwitz/mattmiller899/GirusApp/hdf_test/hdf_3000_2_0_train.h5 2 22 /rsgrps/bhurwitz/mattmiller899/GirusApp/models/model_3000_2.h5
+
+INFO:ModelSaver:Time to walk train and test: 0.0844721794128418s
+
+INFO:ModelSaver:Pos neg train contigs: 18619 15817
+
+INFO:ModelSaver:[name: "/device:CPU:0"
+device_type: "CPU"
+memory_limit: 268435456
+locality {
+}
+incarnation: 2586141146916731236
+]
+
+INFO:ModelSaver:/rsgrps/bhurwitz/mattmiller899/GirusApp/hdf_test/hdf_3000_2_0_train.h5 2 22 /rsgrps/bhurwitz/mattmiller899/GirusApp/models/model_3000_2.h5
+
+INFO:ModelSaver:Time to walk train and test: 0.058911800384521484s
+
+INFO:ModelSaver:Pos neg train contigs: 18619 15817
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:Layer (type)                 Output Shape              Param #   
+
+INFO:ModelSaver:=================================================================
+
+INFO:ModelSaver:dense_1 (Dense)              (None, 100)               7500      
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_1 (Batch (None, 100)               400       
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_1 (Activation)    (None, 100)               0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_1 (Dropout)          (None, 100)               0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_2 (Dense)              (None, 50)                5050      
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_2 (Batch (None, 50)                200       
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_2 (Activation)    (None, 50)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_2 (Dropout)          (None, 50)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_3 (Dense)              (None, 25)                1275      
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_3 (Batch (None, 25)                100       
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_3 (Activation)    (None, 25)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_3 (Dropout)          (None, 25)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_4 (Dense)              (None, 12)                312       
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_4 (Batch (None, 12)                48        
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_4 (Activation)    (None, 12)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_4 (Dropout)          (None, 12)                0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_5 (Dense)              (None, 6)                 78        
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_5 (Batch (None, 6)                 24        
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_5 (Activation)    (None, 6)                 0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_5 (Dropout)          (None, 6)                 0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_6 (Dense)              (None, 3)                 21        
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:batch_normalization_6 (Batch (None, 3)                 12        
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_6 (Activation)    (None, 3)                 0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_6 (Dropout)          (None, 3)                 0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dense_7 (Dense)              (None, 1)                 4         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:activation_7 (Activation)    (None, 1)                 0         
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:dropout_7 (Dropout)          (None, 1)                 0         
+
+INFO:ModelSaver:=================================================================
+
+INFO:ModelSaver:Total params: 15,024
+
+INFO:ModelSaver:Trainable params: 14,632
+
+INFO:ModelSaver:Non-trainable params: 392
+
+INFO:ModelSaver:_________________________________________________________________
+
+INFO:ModelSaver:About to start training
+
+INFO:ModelSaver:dict_keys(['loss', 'acc'])
+INFO:ModelSaver:
+
+INFO:ModelSaver:[0.8220466953188523, 0.8920896735973981, 0.904228133348821, 0.9073063073527704, 0.9106458357532814, 0.9188059008014868, 0.9142757579277501, 0.9182251132535718, 0.926065745150424, 0.929637588570101]
+INFO:ModelSaver:
+
+INFO:ModelSaver:[0.4406178524054112, 0.28345435228424215, 0.24983438192752613, 0.23788925737076788, 0.22901386134036536, 0.20954573011478628, 0.21777275317858177, 0.20870737902294786, 0.18848276479549006, 0.18014225014093266]
