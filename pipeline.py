@@ -24,8 +24,10 @@ def get_args():
                             help='kmer size')
     arg_parser.add_argument('-e', '--extension', required=True, default='fasta',
                             help='extension for input files')
-    arg_parser.add_argument('-m', '--model_type', required=True, type=int,
-                            help='1 = virus, 2 = bact, 3 = protozoa, 4 = PAVFB')
+    arg_parser.add_argument('-m', '--model_path', required=True,
+                            help='path to model hdf file')
+    arg_parser.add_argument('-l', '--label', action="store_true", default=False,
+                            help="Include ID and sequence in feature files")
     args = arg_parser.parse_args()
     return args
 
@@ -42,7 +44,8 @@ class Pipeline:
                 predict,
                 kmer,
                 extension,
-                model_type
+                model_type,
+                label
                 
     ):
         self.input_dir = input_dir
@@ -51,7 +54,8 @@ class Pipeline:
         self.k = kmer
         self.uproc_executable_fp = os.environ.get('UPROC-DNA', default='uproc-dna')
         self.ext = extension
-        self.model_type = model_type
+        self.model_path = model_path 
+        self.label = label
         #TODO change to not hard-coded
         self.uproc_db_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/pfam27ready'
         self.uproc_model_fp = '/rsgrps/bhurwitz/hurwitzlab/data/reference/uproc/model'
@@ -75,12 +79,13 @@ class Pipeline:
         log.info('Feature dir = "%s"' % feature_dir)
         pred_dir = os.path.join(out_dir, 'prediction_dir')
         #if self.rank == 0:
-        os.mkdir(pred_dir)
-        os.mkdir(uproc_dir) 
-        os.mkdir(feature_dir)
+        os.makedirs(pred_dir)
+        os.makedirs(uproc_dir) 
+        os.makedirs(feature_dir)
         log.info('Prediction dir = "%s"' % pred_dir)
         log.info('List of input files = "%s"' % input_files)
-        #model = self.create_model()
+        #HARDCODED CHANGE EVENTUALLY
+        model = keras.models.load_model(self.model_path)
         for input_file in input_files:
             log.info('Preprocessing file "%s"' % input_file)
             input_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -133,13 +138,17 @@ class Pipeline:
 
     def step_01_gc_content(self, l, out, curr_id):
         seq = Seq.Seq(l)
-        print("Curr id = %s" % curr_id)
-        print("seq = %s" % str(seq))
-        out.write('%s,%s,%f,' % (curr_id, seq.tostring(), (GC(seq) / 100)))
-
+        if self.label:
+            out.write('%s,%s,%f,' % (curr_id, seq.tostring(), (GC(seq) / 100)))
+        else:
+            out.write('%f,' % (GC(seq) / 100))
  
     def step_02_num_orfs_and_codon_bias(self, l, out, i, uproc_file):
-        dataset = pd.read_csv(uproc_file)
+        try:
+            dataset = pd.read_csv(uproc_file)
+        except:
+            out.write('0,%s,' % str(','.join(['0.0' for x in range(64)])))
+            return
         i = i+1
         found_orfs = False
         #Get all orfs
@@ -185,7 +194,6 @@ class Pipeline:
             for x in range(64):
                 codon_bias_arr[x] /= codon_counter 
         write_str = ','.join(['{:.5f}'.format(x) for x in codon_bias_arr])
-        print("write str = %s" % write_str)
         out.write('%d,%s,' % (len(contig_info_dict), write_str))
 
  
